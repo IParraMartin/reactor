@@ -56,10 +56,10 @@ prediction time.
 
 ## Usage
 
-The model is loaded by the `reactor` Python package (distribution `reactor-rt`, MIT):
+The model is loaded by the `reactor` Python package ([`reactor-rt`](https://pypi.org/project/reactor-rt/) on PyPI, MIT):
 
 ```bash
-pip install git+https://github.com/IParraMartin/reactor.git
+pip install reactor-rt
 ```
 
 ```python

@@ -41,8 +41,9 @@ dependencies = [
 cuda = ["flash-linear-attention>=0.4"]
 
 [project.urls]
-Repository = "https://github.com/IParraMartin/reactor"
-Model = "https://huggingface.co/IParraMartin/reactor-qwen3.5-4b"
+Homepage = "https://huggingface.co/IParraMartin/reactor-qwen3.5-4b"
+Documentation = "https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/docs/evaluation.md"
+Changelog = "https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = ["pytest>=8.3"]

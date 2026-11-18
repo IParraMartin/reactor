@@ -16,7 +16,7 @@ result.words           # every measure for every word
 ## Installation
 
 ```bash
-pip install git+https://github.com/IParraMartin/reactor.git
+pip install reactor-rt
 ```
 
 - **Requirements.** Python 3.11 or newer, PyTorch 2.6 or newer and Transformers 5.2 or
@@ -29,8 +29,7 @@ pip install git+https://github.com/IParraMartin/reactor.git
 - **Hardware.** A CUDA GPU with 16 GB or more is fastest; on smaller cards, lower
   `max_tokens`. Apple silicon (MPS) and CPU also work. On an Apple laptop, loading takes about 20 s and a short sentence about
   0.7 s.
-- **Linux GPUs.** `pip install "reactor-rt[cuda] @ git+https://github.com/IParraMartin/reactor.git"`
-  also installs `flash-linear-attention`, the fast kernels for the backbone's linear
+- **Linux GPUs.** `pip install "reactor-rt[cuda]"` also installs `flash-linear-attention`, the fast kernels for the backbone's linear
   attention layers. Without them the layers run in plain PyTorch, which is slower but
   gives the same results up to floating-point precision.
 
@@ -137,8 +136,8 @@ bootstrap intervals):
   significant.
 - On corpora left out of training it leads that feature model by +0.014 [+0.009, +0.019].
 
-[docs/evaluation.md](docs/evaluation.md) has every comparison and the known weak spots;
-the raw tables are in [results/](results).
+The [evaluation report](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/docs/evaluation.md) has every comparison and
+the known weak spots; the raw tables are in [results/](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/tree/main/results).
 
 ```python
 info = rt.model_info()         # bundled with the package, no download
@@ -159,8 +158,8 @@ info.training                  # data mix, architecture, optimisation, compute
    lacks.
 4. Three such heads, trained with different seeds, share one backbone and are averaged.
 
-See [docs/training.md](docs/training.md) for the training details and
-[docs/datasets.md](docs/datasets.md) for the corpora.
+See the [training details](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/docs/training.md) and the
+[training corpora](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/docs/datasets.md).
 
 ## Limitations
 
@@ -178,15 +177,15 @@ See [docs/training.md](docs/training.md) for the training details and
 
 ## Licence
 
-- **Code:** MIT ([LICENSE](LICENSE)).
+- **Code:** MIT.
 - **Model weights:**
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), because some
   training corpora are licensed non-commercially.
 - **Backbone:** Qwen3.5-4B-Base is Apache 2.0 and is downloaded from its own
   repository.
-- [NOTICE.md](NOTICE.md) lists the licences of the training corpora.
+- [NOTICE.md](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/NOTICE.md) lists the licences of the training corpora.
 
 ## Citation
 
-If you use reactor, please cite it ([CITATION.cff](CITATION.cff)) and the corpora it was
-trained on ([docs/datasets.md](docs/datasets.md)).
+If you use reactor, please cite it ([BibTeX](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b#citation)) and the corpora it was
+trained on ([citations](https://huggingface.co/IParraMartin/reactor-qwen3.5-4b/blob/main/docs/datasets.md#citations)).
