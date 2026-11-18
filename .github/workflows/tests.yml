@@ -1,0 +1,22 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # the CPU wheel keeps the job small; the tests build tiny models and download nothing
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e . pytest
+      - run: pytest

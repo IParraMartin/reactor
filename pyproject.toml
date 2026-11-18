@@ -1,0 +1,63 @@
+[project]
+name = "reactor-rt"
+version = "0.1.0"
+description = "Human reading times for any text: word-level eye-tracking and self-paced reading predictions in 22 languages."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "IParraMartin" }]
+requires-python = ">=3.11"
+keywords = [
+    "reading times",
+    "eye tracking",
+    "self-paced reading",
+    "psycholinguistics",
+    "surprisal",
+    "language models"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+    "Typing :: Typed"
+]
+dependencies = [
+    "huggingface-hub>=1.0",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "safetensors>=0.4",
+    "torch>=2.6",
+    "transformers>=5.2",
+    "wordfreq[cjk]>=3.1"
+]
+
+[project.optional-dependencies]
+cuda = ["flash-linear-attention>=0.4"]
+
+[project.urls]
+Repository = "https://github.com/IParraMartin/reactor"
+Model = "https://huggingface.co/IParraMartin/reactor-qwen3.5-4b"
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reactor"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "docs", "results", "scripts", "README.md", "LICENSE", "NOTICE.md", "CHANGELOG.md", "CITATION.cff"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = "-q"

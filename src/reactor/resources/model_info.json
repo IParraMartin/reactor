@@ -1,0 +1,1981 @@
+{
+ "name": "IParraMartin/reactor-qwen3.5-4b",
+ "revision": "v0.1.0",
+ "licence": "CC-BY-NC-SA-4.0",
+ "backbone": {
+  "attn_implementation": "sdpa",
+  "dtype": "bfloat16",
+  "name": "Qwen/Qwen3.5-4B-Base",
+  "revision": "1001bb4d826a52d1f399e183466143f4da7b741b"
+ },
+ "training": {
+  "summary": "Heads trained on a frozen Qwen3.5-4B-Base with 31 corpora mixed by temperature sampling; three seeds, each the checkpoint with the best validation score, averaged at prediction time.",
+  "data": {
+   "datasets": 31,
+   "split": "80/10/10 by text, within each dataset; translations (MECO) and text versions (OneStop) share a split",
+   "split_seed": 0,
+   "min_readers": 3,
+   "reader_weight": "n / (n + 5) for a word read by n readers",
+   "sampling": "dataset drawn with probability proportional to size^0.5",
+   "duration_bounds_ms": {
+    "et": [
+     80,
+     6000
+    ],
+    "spr": [
+     100,
+     3000
+    ]
+   }
+  },
+  "targets": {
+   "measures": {
+    "ffd": "first-fixation duration (ms)",
+    "gd": "gaze duration (ms)",
+    "gpt": "go-past time (ms)",
+    "trt": "total reading time (ms)",
+    "fix_prob": "first-pass fixation probability",
+    "reg_prob": "first-pass regression probability",
+    "rt": "self-paced reading time (ms)"
+   },
+   "aggregation": "durations: mean log duration over readers (eye tracking: readers who fixated the word); probabilities: share of readers",
+   "normalization": "log durations z-scored per dataset, condition and reader group"
+  },
+  "inputs": {
+   "prompt": "Language: {language}. Measure: {paradigm}. Task: {condition}. Readers: {native|non-native} speakers.",
+   "features": [
+    "log_length",
+    "zipf",
+    "zipf_missing",
+    "surprisal",
+    "entropy",
+    "relative_position",
+    "sentence_start",
+    "sentence_end",
+    "punctuation_end",
+    "line_start",
+    "line_end",
+    "line_known"
+   ],
+   "windows": {
+    "context_words": 64,
+    "max_tokens": 1024,
+    "target_words": 256
+   },
+   "pool": "hidden state of each word's last subword token"
+  },
+  "architecture": {
+   "backbone": "Qwen/Qwen3.5-4B-Base (frozen, bfloat16)",
+   "head": {
+    "d_model": 512,
+    "dataset_dropout": 0.1,
+    "dropout": 0.2,
+    "feature_skip_kernel": 5,
+    "kernel_size": 5,
+    "max_words": 1024,
+    "mixer_heads": 8,
+    "mixer_layers": 1,
+    "num_mixes": 2,
+    "type": "full"
+   },
+   "description": "two learned layer mixes, feature fusion, dataset FiLM (dropped 10% of the time to learn a generic reader), local convolution plus a one-layer bidirectional word Transformer, linear outputs with a feature skip"
+  },
+  "loss": {
+   "durations": "Huber (delta 1.0) on z-scored log durations",
+   "probabilities": "binary cross-entropy with soft targets",
+   "task_weights": {
+    "ffd": 1.0,
+    "fix_prob": 1.0,
+    "gd": 1.0,
+    "gpt": 1.0,
+    "reg_prob": 0.5,
+    "rt": 1.0,
+    "trt": 1.0
+   },
+   "masking": "measures a corpus does not provide are left out of the loss"
+  },
+  "optimisation": {
+   "optimizer": "AdamW (betas 0.9, 0.98)",
+   "learning_rate": 0.001,
+   "schedule": "cosine with 3% warmup",
+   "weight_decay": 0.01,
+   "max_grad_norm": 1.0,
+   "batch": "up to 16384 padded tokens and 32 windows",
+   "max_epochs": 20,
+   "early_stopping": "validation macro Pearson every 60 steps, patience 8"
+  },
+  "compute": {
+   "hardware": "one NVIDIA A40 (48 GB) per seed",
+   "minutes_per_seed": [
+    117,
+    95,
+    99
+   ],
+   "peak_memory_gb": 13.7
+  },
+  "members": [
+   {
+    "member": "seed0",
+    "seed": 0,
+    "best_step": 5760,
+    "steps": 6240,
+    "val_cell_macro": 0.6485,
+    "test_cell_macro": 0.6443,
+    "test_dataset_macro": 0.6841
+   },
+   {
+    "member": "seed1",
+    "seed": 1,
+    "best_step": 4620,
+    "steps": 5100,
+    "val_cell_macro": 0.6494,
+    "test_cell_macro": 0.6427,
+    "test_dataset_macro": 0.6782
+   },
+   {
+    "member": "seed2",
+    "seed": 2,
+    "best_step": 4860,
+    "steps": 5340,
+    "val_cell_macro": 0.6477,
+    "test_cell_macro": 0.6432,
+    "test_dataset_macro": 0.68
+   }
+  ]
+ },
+ "datasets": [
+  {
+   "name": "brown_spr",
+   "full_name": "Brown self-paced reading corpus",
+   "licence": "not stated",
+   "url": "https://doi.org/10.1016/j.cognition.2013.02.013",
+   "citation": "Smith, N. J., & Levy, R. (2013). The effect of word predictability on reading time is logarithmic. Cognition, 128(3), 302-319. https://doi.org/10.1016/j.cognition.2013.02.013",
+   "paradigm": "spr",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading passages"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "rt"
+   ],
+   "texts": 51,
+   "words": 7188,
+   "mean_readers": 19.0,
+   "tier": 2,
+   "test_cells": 1
+  },
+  {
+   "name": "bsc",
+   "full_name": "Beijing Sentence Corpus (BSC)",
+   "licence": "not stated",
+   "url": "https://osf.io/vr3k8/",
+   "citation": "Pan, J., Yan, M., Richter, E. M., Shu, H., & Kliegl, R. (2022). The Beijing Sentence Corpus: A Chinese sentence corpus with eye movement data and predictability norms. Behavior Research Methods, 54(4), 1989-2000. https://doi.org/10.3758/s13428-021-01730-2",
+   "paradigm": "et",
+   "languages": [
+    "zh"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 150,
+   "words": 1685,
+   "mean_readers": 54.6,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "bsc2",
+   "full_name": "Beijing Sentence Corpus II (traditional script)",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/j9xt4/",
+   "citation": "Yan, M., Pan, J., & Kliegl, R. (2025). The Beijing Sentence Corpus II: A cross-script comparison between traditional and simplified Chinese sentence reading. Behavior Research Methods, 57(2), 60. https://doi.org/10.3758/s13428-024-02523-z",
+   "paradigm": "et",
+   "languages": [
+    "zh"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 150,
+   "words": 1685,
+   "mean_readers": 64.5,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "cervino",
+   "full_name": "CERVINO: eye tracking on Italian legal texts",
+   "licence": "CC BY 4.0",
+   "url": "https://doi.org/10.5281/zenodo.22082820",
+   "citation": "Scozzaro, C. J., Delsanto, M., Pasquet, S., Revelli, L., Mastropaolo, A., & Radicioni, D. P. (2026). CERVINO: A large-scale eye-tracking resource of Italian legal texts. In Proceedings of EMNLP 2026 (pp. 55269-55283).",
+   "paradigm": "et",
+   "languages": [
+    "it"
+   ],
+   "conditions": [
+    "reading legal texts"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 36,
+   "words": 2593,
+   "mean_readers": 51.2,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "chinese_reading",
+   "full_name": "Database of Eye-Movement Measures on Words in Chinese Reading",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/94wue/",
+   "citation": "Zhang, G., Yao, P., Ma, G., et al. (2022). The database of eye-movement measures on words in Chinese reading. Scientific Data, 9, 411. https://doi.org/10.1038/s41597-022-01464-6",
+   "paradigm": "et",
+   "languages": [
+    "zh"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 8982,
+   "words": 127914,
+   "mean_readers": 11.7,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "copco",
+   "full_name": "Copenhagen Corpus (CopCo)",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/ud8s5/",
+   "citation": "Hollenstein, N., Barrett, M., & Björnsdóttir, M. (2022). The Copenhagen Corpus of eye tracking recordings from natural reading of Danish texts. In Proceedings of LREC 2022 (pp. 1712-1720). https://aclanthology.org/2022.lrec-1.182",
+   "paradigm": "et",
+   "languages": [
+    "da"
+   ],
+   "conditions": [
+    "reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1",
+    "L2"
+   ],
+   "measures": [
+    "trt"
+   ],
+   "texts": 366,
+   "words": 50287,
+   "mean_readers": 3.9,
+   "tier": 1,
+   "test_cells": 2
+  },
+  {
+   "name": "emtec",
+   "full_name": "Eye movements on Machine-generated Texts Corpus (EMTeC)",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/ajqze/",
+   "citation": "Bolliger, L. S., Haller, P., Cretton, I. C. R., Reich, D. R., Kew, T., & Jäger, L. A. (2025). EMTeC: A corpus of eye movements on machine-generated texts. Behavior Research Methods, 57(7), 189. https://doi.org/10.3758/s13428-025-02677-4",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading machine-generated texts"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 588,
+   "words": 50871,
+   "mean_readers": 7.5,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "geco_en",
+   "full_name": "Ghent Eye-tracking Corpus (GECO), English",
+   "licence": "not stated (\"freely available\")",
+   "url": "https://expsy.ugent.be/downloads/geco/",
+   "citation": "Cop, U., Dirix, N., Drieghe, D., & Duyck, W. (2017). Presenting GECO: An eyetracking corpus of monolingual and bilingual sentence reading. Behavior Research Methods, 49(2), 602-615. https://doi.org/10.3758/s13428-016-0734-0",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading a novel"
+   ],
+   "reader_groups": [
+    "L1",
+    "L2"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 588,
+   "words": 112816,
+   "mean_readers": 11.6,
+   "tier": 1,
+   "test_cells": 12
+  },
+  {
+   "name": "geco_nl",
+   "full_name": "Ghent Eye-tracking Corpus (GECO), Dutch",
+   "licence": "not stated (\"freely available\")",
+   "url": "https://expsy.ugent.be/downloads/geco/",
+   "citation": "Cop, U., Dirix, N., Drieghe, D., & Duyck, W. (2017). Presenting GECO: An eyetracking corpus of monolingual and bilingual sentence reading. Behavior Research Methods, 49(2), 602-615. https://doi.org/10.3758/s13428-016-0734-0",
+   "paradigm": "et",
+   "languages": [
+    "nl"
+   ],
+   "conditions": [
+    "reading a novel"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 658,
+   "words": 60719,
+   "mean_readers": 9.0,
+   "tier": 1,
+   "test_cells": 6
+  },
+  {
+   "name": "hecz",
+   "full_name": "HeCz: Czech newspaper headlines",
+   "licence": "CC BY 4.0",
+   "url": "http://hdl.handle.net/11234/1-6121",
+   "citation": "Chromý, J., Ceháková, M., & Brand, J. (2025). The HeCz corpus: A large, richly annotated reading corpus of newspaper headlines in Czech. Behavior Research Methods, 57(12), 345. https://doi.org/10.3758/s13428-025-02863-4",
+   "paradigm": "spr",
+   "languages": [
+    "cs"
+   ],
+   "conditions": [
+    "reading newspaper headlines"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "rt"
+   ],
+   "texts": 1919,
+   "words": 23634,
+   "mean_readers": 98.6,
+   "tier": 2,
+   "test_cells": 1
+  },
+  {
+   "name": "hindi",
+   "full_name": "Potsdam-Allahabad Hindi Eye-tracking Corpus",
+   "licence": "MIT",
+   "url": "https://github.com/vasishth/HusainEtAlJEMR2015",
+   "citation": "Husain, S., Vasishth, S., & Srinivasan, N. (2015). Integration and prediction difficulty in Hindi sentence comprehension: Evidence from an eye-tracking corpus. Journal of Eye Movement Research, 8(2), 1-12. https://doi.org/10.16910/jemr.8.2.3",
+   "paradigm": "et",
+   "languages": [
+    "hi"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob"
+   ],
+   "texts": 153,
+   "words": 2596,
+   "mean_readers": 29.5,
+   "tier": 2,
+   "test_cells": 5
+  },
+  {
+   "name": "hkc",
+   "full_name": "Hong Kong Corpus of Chinese Sentence and Passage Reading (HKC)",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/z465b/",
+   "citation": "Wu, Y., & Kit, C. (2023). Hong Kong Corpus of Chinese sentence and passage reading. Scientific Data, 10, 899. https://doi.org/10.1038/s41597-023-02813-9",
+   "paradigm": "et",
+   "languages": [
+    "zh"
+   ],
+   "conditions": [
+    "reading isolated sentences",
+    "reading passages"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 341,
+   "words": 11797,
+   "mean_readers": 96.9,
+   "tier": 2,
+   "test_cells": 10
+  },
+  {
+   "name": "interead",
+   "full_name": "InteRead: An Eye Tracking Dataset of Interrupted Reading",
+   "licence": "CC BY-NC 4.0 (OSF) / CC BY-NC-SA 4.0 (project page)",
+   "url": "https://osf.io/43j5f/",
+   "citation": "Zermiani, F., Dhar, P., Sood, E., Kögel, F., Bulling, A., & Wirzberger, M. (2024). InteRead: An eye tracking dataset of interrupted reading. In Proceedings of LREC-COLING 2024 (pp. 9154-9169). https://aclanthology.org/2024.lrec-main.802",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading fiction"
+   ],
+   "reader_groups": [
+    "L1",
+    "L2"
+   ],
+   "measures": [
+    "trt"
+   ],
+   "texts": 22,
+   "words": 6894,
+   "mean_readers": 25.0,
+   "tier": 1,
+   "test_cells": 2
+  },
+  {
+   "name": "meco_l1w1",
+   "full_name": "Multilingual Eye-movement Corpus (MECO) L1, wave 1",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/3527a/",
+   "citation": "Siegelman, N., Schroeder, S., Acartürk, C., et al. (2022). Expanding horizons of cross-linguistic research on reading: The Multilingual Eye-movement Corpus (MECO). Behavior Research Methods, 54(6), 2843-2863. https://doi.org/10.3758/s13428-021-01772-6",
+   "paradigm": "et",
+   "languages": [
+    "de",
+    "el",
+    "en",
+    "es",
+    "et",
+    "fi",
+    "he",
+    "it",
+    "ko",
+    "nl",
+    "no",
+    "ru",
+    "tr"
+   ],
+   "conditions": [
+    "reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 156,
+   "words": 25387,
+   "mean_readers": 33.7,
+   "tier": 1,
+   "test_cells": 78
+  },
+  {
+   "name": "meco_l1w2",
+   "full_name": "Multilingual Eye-movement Corpus (MECO) L1, wave 2",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/3527a/",
+   "citation": "Siegelman, N., Schroeder, S., Bao, Y., et al. (2025). Wave 2 of the Multilingual Eye-Movement Corpus (MECO): New text reading data across languages. Scientific Data, 12, 1183. https://doi.org/10.1038/s41597-025-05453-3",
+   "paradigm": "et",
+   "languages": [
+    "da",
+    "de",
+    "en",
+    "es",
+    "eu",
+    "hi",
+    "is",
+    "no",
+    "pt",
+    "ru",
+    "sr",
+    "tr",
+    "zh"
+   ],
+   "conditions": [
+    "reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 192,
+   "words": 32903,
+   "mean_readers": 29.7,
+   "tier": 1,
+   "test_cells": 78
+  },
+  {
+   "name": "meco_l2w1",
+   "full_name": "Multilingual Eye-movement Corpus (MECO) L2, wave 1",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/q9h43/",
+   "citation": "Kuperman, V., Siegelman, N., Schroeder, S., et al. (2023). Text reading in English as a second language: Evidence from the Multilingual Eye-Movements Corpus. Studies in Second Language Acquisition, 45(1), 3-37. https://doi.org/10.1017/S0272263121000954",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1",
+    "L2"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 12,
+   "words": 3316,
+   "mean_readers": 197.6,
+   "tier": 1,
+   "test_cells": 12
+  },
+  {
+   "name": "meco_l2w2",
+   "full_name": "Multilingual Eye-movement Corpus (MECO) L2, wave 2",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/q9h43/",
+   "citation": "Kuperman, V., Schroeder, S., Acartürk, C., et al. (2025). New data on text reading in English as a second language: The Wave 2 expansion of the Multilingual Eye-Movement Corpus (MECO). Studies in Second Language Acquisition, 47(2), 677-695. https://doi.org/10.1017/S0272263125000105",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1",
+    "L2"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 12,
+   "words": 3316,
+   "mean_readers": 234.3,
+   "tier": 1,
+   "test_cells": 12
+  },
+  {
+   "name": "natural_stories",
+   "full_name": "Natural Stories Corpus",
+   "licence": "CC BY-NC-SA 4.0",
+   "url": "https://github.com/languageMIT/naturalstories",
+   "citation": "Futrell, R., Gibson, E., Tily, H. J., Blank, I., Vishnevetsky, A., Piantadosi, S. T., & Fedorenko, E. (2021). The Natural Stories corpus: A reading-time corpus of English texts containing rare syntactic constructions. Language Resources and Evaluation, 55(1), 63-77. https://doi.org/10.1007/s10579-020-09503-7",
+   "paradigm": "spr",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading stories for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "rt"
+   ],
+   "texts": 67,
+   "words": 10256,
+   "mean_readers": 82.8,
+   "tier": 1,
+   "test_cells": 1
+  },
+  {
+   "name": "onestop",
+   "full_name": "OneStop Eye Movements",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/2prdq/",
+   "citation": "Berzak, Y., Malmaud, J., Shubi, O., Meiri, Y., Lion, E., & Levy, R. (2025). OneStop: A 360-participant English eye tracking dataset with different reading regimes. Scientific Data, 12, 1995. https://doi.org/10.1038/s41597-025-06272-2",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "information seeking",
+    "information seeking, repeated reading",
+    "reading for comprehension",
+    "repeated reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 324,
+   "words": 140724,
+   "mean_readers": 17.8,
+   "tier": 1,
+   "test_cells": 24
+  },
+  {
+   "name": "potec",
+   "full_name": "Potsdam Textbook Corpus (PoTeC)",
+   "licence": "CC BY 4.0 (data; the stimulus texts are copyrighted)",
+   "url": "https://osf.io/dn5hp/",
+   "citation": "Jakobi, D. N., Kern, T., Reich, D. R., Haller, P., & Jäger, L. A. (2025). PoTeC: A German naturalistic eye-tracking-while-reading corpus. Behavior Research Methods, 57(8), 211. https://doi.org/10.3758/s13428-024-02536-8",
+   "paradigm": "et",
+   "languages": [
+    "de"
+   ],
+   "conditions": [
+    "reading textbook passages for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 12,
+   "words": 1895,
+   "mean_readers": 75.0,
+   "tier": 1,
+   "test_cells": 6
+  },
+  {
+   "name": "provo",
+   "full_name": "The Provo Corpus",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/sjefs/",
+   "citation": "Luke, S. G., & Christianson, K. (2018). The Provo Corpus: A large eye-tracking corpus with predictability norms. Behavior Research Methods, 50(2), 826-833. https://doi.org/10.3758/s13428-017-0908-4",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 55,
+   "words": 2743,
+   "mean_readers": 84.0,
+   "tier": 1,
+   "test_cells": 6
+  },
+  {
+   "name": "psr",
+   "full_name": "Persian Sentence Reading Corpus (PSR)",
+   "licence": "not stated",
+   "url": "https://osf.io/4w362/",
+   "citation": "Soleymani Tekbudak, F., Purmohammad, M., Özkan, A., & Acartürk, C. (2025). The PSR corpus: A Persian sentence reading corpus of eye movements. Behavior Research Methods, 57(1), 14. https://doi.org/10.3758/s13428-024-02517-x",
+   "paradigm": "et",
+   "languages": [
+    "fa"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 99,
+   "words": 1015,
+   "mean_readers": 59.7,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "raccoons",
+   "full_name": "Radboud Coregistration Corpus of Narrative Sentences (RaCCooNS)",
+   "licence": "CC BY-NC-SA 4.0",
+   "url": "https://doi.org/10.34973/3g69-ha39",
+   "citation": "Frank, S. L., & Aumeistere, A. (2024). An eye-tracking-with-EEG coregistration corpus of narrative sentences. Language Resources and Evaluation, 58(2), 641-657. https://doi.org/10.1007/s10579-023-09684-x",
+   "paradigm": "et",
+   "languages": [
+    "nl"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 200,
+   "words": 2783,
+   "mean_readers": 34.4,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "rastros",
+   "full_name": "RastrOS",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/9jxg3/",
+   "citation": "Leal, S. E., Lukasova, K., Carthery-Goulart, M. T., & Aluísio, S. M. (2022). RastrOS Project: Natural language processing contributions to the development of an eye-tracking corpus with predictability norms for Brazilian Portuguese. Language Resources and Evaluation, 56(4), 1333-1372. https://doi.org/10.1007/s10579-022-09609-0",
+   "paradigm": "et",
+   "languages": [
+    "pt"
+   ],
+   "conditions": [
+    "reading paragraphs"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 49,
+   "words": 2440,
+   "mean_readers": 35.2,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "rsc",
+   "full_name": "Russian Sentence Corpus (RSC)",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/x5q2r/",
+   "citation": "Laurinavichyute, A. K., Sekerina, I. A., Alexeeva, S., Bagdasaryan, K., & Kliegl, R. (2019). Russian Sentence Corpus: Benchmark measures of eye movements in reading in Russian. Behavior Research Methods, 51(3), 1161-1178. https://doi.org/10.3758/s13428-018-1051-6",
+   "paradigm": "et",
+   "languages": [
+    "ru"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob"
+   ],
+   "texts": 144,
+   "words": 1357,
+   "mean_readers": 101.5,
+   "tier": 2,
+   "test_cells": 5
+  },
+  {
+   "name": "tint",
+   "full_name": "Tilburg corpus of Natural Dutch Texts (TiNT)",
+   "licence": "CC BY-NC-SA 4.0",
+   "url": "https://doi.org/10.34894/0O5XQ7",
+   "citation": "Østergaard, S. M., Lichtenberg, L. D., Boon, L., & Nicenboim, B. (2026). A corpus of joint EEG and self-paced reading of natural Dutch texts. In Proceedings of LREC 2026 (pp. 11260-11271).",
+   "paradigm": "spr",
+   "languages": [
+    "nl"
+   ],
+   "conditions": [
+    "reading stories for comprehension"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "rt"
+   ],
+   "texts": 32,
+   "words": 4786,
+   "mean_readers": 56.9,
+   "tier": 2,
+   "test_cells": 1
+  },
+  {
+   "name": "turead",
+   "full_name": "TURead: An eye movement dataset of Turkish reading",
+   "licence": "not stated",
+   "url": "https://osf.io/w53cz/",
+   "citation": "Acartürk, C., Özkan, A., Pekçetin, T. N., Ormanoğlu, Z., & Kırkıcı, B. (2024). TURead: An eye movement dataset of Turkish reading. Behavior Research Methods, 56(3), 1793-1816. https://doi.org/10.3758/s13428-023-02120-6",
+   "paradigm": "et",
+   "languages": [
+    "tr"
+   ],
+   "conditions": [
+    "reading short texts aloud",
+    "reading short texts silently"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 192,
+   "words": 5886,
+   "mean_readers": 97.4,
+   "tier": 2,
+   "test_cells": 12
+  },
+  {
+   "name": "ucl_et",
+   "full_name": "UCL corpus, eye tracking",
+   "licence": "not stated",
+   "url": "https://doi.org/10.3758/s13428-012-0313-y",
+   "citation": "Frank, S. L., Fernandez Monsalve, I., Thompson, R. L., & Vigliocco, G. (2013). Reading time data for evaluating broad-coverage models of English sentence processing. Behavior Research Methods, 45(4), 1182-1190. https://doi.org/10.3758/s13428-012-0313-y",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 205,
+   "words": 1931,
+   "mean_readers": 36.0,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "ucl_spr",
+   "full_name": "UCL corpus, self-paced reading",
+   "licence": "not stated",
+   "url": "https://doi.org/10.3758/s13428-012-0313-y",
+   "citation": "Frank, S. L., Fernandez Monsalve, I., Thompson, R. L., & Vigliocco, G. (2013). Reading time data for evaluating broad-coverage models of English sentence processing. Behavior Research Methods, 45(4), 1182-1190. https://doi.org/10.3758/s13428-012-0313-y",
+   "paradigm": "spr",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1",
+    "L2"
+   ],
+   "measures": [
+    "rt"
+   ],
+   "texts": 361,
+   "words": 9914,
+   "mean_readers": 31.9,
+   "tier": 2,
+   "test_cells": 2
+  },
+  {
+   "name": "zuco1",
+   "full_name": "Zurich Cognitive Language Processing Corpus (ZuCo 1.0), normal reading",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/q3zws/",
+   "citation": "Hollenstein, N., Rotsztejn, J., Troendle, M., Pedroni, A., Zhang, C., & Langer, N. (2018). ZuCo, a simultaneous EEG and eye-tracking resource for natural sentence reading. Scientific Data, 5, 180291. https://doi.org/10.1038/sdata.2018.291",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 300,
+   "words": 6588,
+   "mean_readers": 11.7,
+   "tier": 2,
+   "test_cells": 6
+  },
+  {
+   "name": "zuco2",
+   "full_name": "Zurich Cognitive Language Processing Corpus (ZuCo 2.0), normal reading",
+   "licence": "CC BY 4.0",
+   "url": "https://osf.io/2urht/",
+   "citation": "Hollenstein, N., Troendle, M., Zhang, C., & Langer, N. (2020). ZuCo 2.0: A dataset of physiological recordings during natural reading and annotation. In Proceedings of LREC 2020 (pp. 138-146). https://aclanthology.org/2020.lrec-1.18",
+   "paradigm": "et",
+   "languages": [
+    "en"
+   ],
+   "conditions": [
+    "reading isolated sentences"
+   ],
+   "reader_groups": [
+    "L1"
+   ],
+   "measures": [
+    "ffd",
+    "gd",
+    "gpt",
+    "trt",
+    "fix_prob",
+    "reg_prob"
+   ],
+   "texts": 349,
+   "words": 6828,
+   "mean_readers": 17.6,
+   "tier": 2,
+   "test_cells": 6
+  }
+ ],
+ "languages": {
+  "cs": "Czech",
+  "da": "Danish",
+  "de": "German",
+  "el": "Greek",
+  "en": "English",
+  "es": "Spanish",
+  "et": "Estonian",
+  "eu": "Basque",
+  "fa": "Persian",
+  "fi": "Finnish",
+  "he": "Hebrew",
+  "hi": "Hindi",
+  "is": "Icelandic",
+  "it": "Italian",
+  "ko": "Korean",
+  "nl": "Dutch",
+  "no": "Norwegian",
+  "pt": "Portuguese",
+  "ru": "Russian",
+  "sr": "Serbian",
+  "tr": "Turkish",
+  "zh": "Chinese"
+ },
+ "conditions": [
+  "information seeking",
+  "information seeking, repeated reading",
+  "reading a novel",
+  "reading fiction",
+  "reading for comprehension",
+  "reading isolated sentences",
+  "reading legal texts",
+  "reading machine-generated texts",
+  "reading newspaper headlines",
+  "reading paragraphs",
+  "reading passages",
+  "reading short texts aloud",
+  "reading short texts silently",
+  "reading stories for comprehension",
+  "reading textbook passages for comprehension",
+  "repeated reading for comprehension"
+ ],
+ "results": {
+  "metric": "Pearson r between predicted and observed word means, per dataset x condition x reader group x language x measure cell, averaged over cells (cell_macro) or first within each dataset (dataset_macro)",
+  "test": {
+   "cells": 342,
+   "cell_macro": 0.6518,
+   "dataset_macro": 0.6901,
+   "pearson_normalized": 0.7833
+  },
+  "val": {
+   "cells": 342,
+   "cell_macro": 0.6573,
+   "dataset_macro": 0.7064,
+   "pearson_normalized": 0.7892
+  },
+  "per_measure": [
+   {
+    "target": "ffd",
+    "cells": 56,
+    "pearson": 0.4532,
+    "spearman": 0.4511,
+    "r2": 0.1855,
+    "mae": 20.8127,
+    "ceiling_r": 0.7298,
+    "pearson_normalized": 0.6306
+   },
+   {
+    "target": "gd",
+    "cells": 56,
+    "pearson": 0.6927,
+    "spearman": 0.6773,
+    "r2": 0.4569,
+    "mae": 31.7102,
+    "ceiling_r": 0.8367,
+    "pearson_normalized": 0.8306
+   },
+   {
+    "target": "gpt",
+    "cells": 54,
+    "pearson": 0.6741,
+    "spearman": 0.6385,
+    "r2": 0.4421,
+    "mae": 60.0063,
+    "ceiling_r": 0.8215,
+    "pearson_normalized": 0.8212
+   },
+   {
+    "target": "trt",
+    "cells": 60,
+    "pearson": 0.762,
+    "spearman": 0.7548,
+    "r2": 0.5505,
+    "mae": 47.6599,
+    "ceiling_r": 0.8734,
+    "pearson_normalized": 0.868
+   },
+   {
+    "target": "fix_prob",
+    "cells": 56,
+    "pearson": 0.8215,
+    "spearman": 0.7905,
+    "r2": 0.6387,
+    "mae": 0.105,
+    "ceiling_r": 0.9361,
+    "pearson_normalized": 0.8781
+   },
+   {
+    "target": "reg_prob",
+    "cells": 54,
+    "pearson": 0.4955,
+    "spearman": 0.4248,
+    "r2": 0.2472,
+    "mae": 0.1173,
+    "ceiling_r": 0.7911,
+    "pearson_normalized": 0.6282
+   },
+   {
+    "target": "rt",
+    "cells": 6,
+    "pearson": 0.6415,
+    "spearman": 0.6241,
+    "r2": 0.3303,
+    "mae": 21.5929,
+    "ceiling_r": 0.692,
+    "pearson_normalized": 1.0866
+   }
+  ],
+  "per_dataset": [
+   {
+    "dataset": "brown_spr",
+    "cells": 1,
+    "languages": "en",
+    "measures": "rt",
+    "pearson": 0.6885,
+    "pearson_normalized": 0.921,
+    "r2": 0.4641
+   },
+   {
+    "dataset": "bsc",
+    "cells": 6,
+    "languages": "zh",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.7942,
+    "pearson_normalized": 0.8709,
+    "r2": 0.5764
+   },
+   {
+    "dataset": "bsc2",
+    "cells": 6,
+    "languages": "zh",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.6084,
+    "pearson_normalized": 0.7434,
+    "r2": 0.3411
+   },
+   {
+    "dataset": "cervino",
+    "cells": 6,
+    "languages": "it",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.628,
+    "pearson_normalized": 0.7647,
+    "r2": 0.3752
+   },
+   {
+    "dataset": "chinese_reading",
+    "cells": 6,
+    "languages": "zh",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.6627,
+    "pearson_normalized": 0.9185,
+    "r2": 0.4493
+   },
+   {
+    "dataset": "copco",
+    "cells": 2,
+    "languages": "da",
+    "measures": "trt",
+    "pearson": 0.5011,
+    "pearson_normalized": 0.8059,
+    "r2": 0.0803
+   },
+   {
+    "dataset": "emtec",
+    "cells": 6,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.5525,
+    "pearson_normalized": 0.7718,
+    "r2": 0.3262
+   },
+   {
+    "dataset": "geco_en",
+    "cells": 12,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.6047,
+    "pearson_normalized": 0.9107,
+    "r2": 0.3721
+   },
+   {
+    "dataset": "geco_nl",
+    "cells": 6,
+    "languages": "nl",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.5991,
+    "pearson_normalized": 0.9092,
+    "r2": 0.3642
+   },
+   {
+    "dataset": "hecz",
+    "cells": 1,
+    "languages": "cs",
+    "measures": "rt",
+    "pearson": 0.8366,
+    "pearson_normalized": 0.8827,
+    "r2": 0.6999
+   },
+   {
+    "dataset": "hindi",
+    "cells": 5,
+    "languages": "hi",
+    "measures": "ffd,gd,gpt,trt,fix_prob",
+    "pearson": 0.5711,
+    "pearson_normalized": 0.7089,
+    "r2": 0.0036
+   },
+   {
+    "dataset": "hkc",
+    "cells": 10,
+    "languages": "zh",
+    "measures": "ffd,gd,trt,fix_prob,reg_prob",
+    "pearson": 0.7197,
+    "pearson_normalized": 0.8502,
+    "r2": 0.4866
+   },
+   {
+    "dataset": "interead",
+    "cells": 2,
+    "languages": "en",
+    "measures": "trt",
+    "pearson": 0.5464,
+    "pearson_normalized": 0.7439,
+    "r2": 0.2894
+   },
+   {
+    "dataset": "meco_l1w1",
+    "cells": 78,
+    "languages": "de,el,en,es,et,fi,he,it,ko,nl,no,ru,tr",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.6183,
+    "pearson_normalized": 0.7085,
+    "r2": 0.3951
+   },
+   {
+    "dataset": "meco_l1w2",
+    "cells": 78,
+    "languages": "da,de,en,es,eu,hi,is,no,pt,ru,sr,tr,zh",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.5908,
+    "pearson_normalized": 0.6792,
+    "r2": 0.3507
+   },
+   {
+    "dataset": "meco_l2w1",
+    "cells": 12,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.6363,
+    "pearson_normalized": 0.694,
+    "r2": 0.396
+   },
+   {
+    "dataset": "meco_l2w2",
+    "cells": 12,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.6584,
+    "pearson_normalized": 0.7101,
+    "r2": 0.417
+   },
+   {
+    "dataset": "natural_stories",
+    "cells": 1,
+    "languages": "en",
+    "measures": "rt",
+    "pearson": 0.5,
+    "pearson_normalized": 0.5599,
+    "r2": 0.2181
+   },
+   {
+    "dataset": "onestop",
+    "cells": 24,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.5383,
+    "pearson_normalized": 0.8717,
+    "r2": 0.2262
+   },
+   {
+    "dataset": "potec",
+    "cells": 6,
+    "languages": "de",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.8671,
+    "pearson_normalized": 0.899,
+    "r2": 0.7425
+   },
+   {
+    "dataset": "provo",
+    "cells": 6,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.8544,
+    "pearson_normalized": 0.921,
+    "r2": 0.7129
+   },
+   {
+    "dataset": "psr",
+    "cells": 6,
+    "languages": "fa",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.8851,
+    "pearson_normalized": 0.9153,
+    "r2": 0.6921
+   },
+   {
+    "dataset": "raccoons",
+    "cells": 6,
+    "languages": "nl",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.7652,
+    "pearson_normalized": 0.8822,
+    "r2": 0.589
+   },
+   {
+    "dataset": "rastros",
+    "cells": 6,
+    "languages": "pt",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.8253,
+    "pearson_normalized": 0.9152,
+    "r2": 0.6848
+   },
+   {
+    "dataset": "rsc",
+    "cells": 5,
+    "languages": "ru",
+    "measures": "ffd,gd,gpt,trt,fix_prob",
+    "pearson": 0.87,
+    "pearson_normalized": 0.9164,
+    "r2": 0.76
+   },
+   {
+    "dataset": "tint",
+    "cells": 1,
+    "languages": "nl",
+    "measures": "rt",
+    "pearson": 0.7636,
+    "pearson_normalized": 0.8241,
+    "r2": 0.1918
+   },
+   {
+    "dataset": "turead",
+    "cells": 12,
+    "languages": "tr",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.8704,
+    "pearson_normalized": 0.8889,
+    "r2": 0.7469
+   },
+   {
+    "dataset": "ucl_et",
+    "cells": 6,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.8409,
+    "pearson_normalized": 0.9346,
+    "r2": 0.6977
+   },
+   {
+    "dataset": "ucl_spr",
+    "cells": 2,
+    "languages": "en",
+    "measures": "rt",
+    "pearson": 0.5301,
+    "pearson_normalized": 1.6661,
+    "r2": 0.2039
+   },
+   {
+    "dataset": "zuco1",
+    "cells": 6,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.7217,
+    "pearson_normalized": 0.9789,
+    "r2": 0.5223
+   },
+   {
+    "dataset": "zuco2",
+    "cells": 6,
+    "languages": "en",
+    "measures": "ffd,gd,gpt,trt,fix_prob,reg_prob",
+    "pearson": 0.7436,
+    "pearson_normalized": 0.9118,
+    "r2": 0.5569
+   }
+  ],
+  "per_language": [
+   {
+    "language": "cs",
+    "cells": 1,
+    "pearson": 0.8366,
+    "pearson_normalized": 0.8827
+   },
+   {
+    "language": "da",
+    "cells": 8,
+    "pearson": 0.6012,
+    "pearson_normalized": 0.7499
+   },
+   {
+    "language": "de",
+    "cells": 18,
+    "pearson": 0.7068,
+    "pearson_normalized": 0.7787
+   },
+   {
+    "language": "el",
+    "cells": 6,
+    "pearson": 0.5911,
+    "pearson_normalized": 0.6731
+   },
+   {
+    "language": "en",
+    "cells": 108,
+    "pearson": 0.631,
+    "pearson_normalized": 0.8325
+   },
+   {
+    "language": "es",
+    "cells": 12,
+    "pearson": 0.5867,
+    "pearson_normalized": 0.6682
+   },
+   {
+    "language": "et",
+    "cells": 6,
+    "pearson": 0.7178,
+    "pearson_normalized": 0.828
+   },
+   {
+    "language": "eu",
+    "cells": 6,
+    "pearson": 0.6722,
+    "pearson_normalized": 0.7811
+   },
+   {
+    "language": "fa",
+    "cells": 6,
+    "pearson": 0.8851,
+    "pearson_normalized": 0.9153
+   },
+   {
+    "language": "fi",
+    "cells": 6,
+    "pearson": 0.7365,
+    "pearson_normalized": 0.851
+   },
+   {
+    "language": "he",
+    "cells": 6,
+    "pearson": 0.5628,
+    "pearson_normalized": 0.6475
+   },
+   {
+    "language": "hi",
+    "cells": 11,
+    "pearson": 0.5557,
+    "pearson_normalized": 0.6637
+   },
+   {
+    "language": "is",
+    "cells": 6,
+    "pearson": 0.6261,
+    "pearson_normalized": 0.7116
+   },
+   {
+    "language": "it",
+    "cells": 12,
+    "pearson": 0.6144,
+    "pearson_normalized": 0.7257
+   },
+   {
+    "language": "ko",
+    "cells": 6,
+    "pearson": 0.5598,
+    "pearson_normalized": 0.6446
+   },
+   {
+    "language": "nl",
+    "cells": 19,
+    "pearson": 0.6629,
+    "pearson_normalized": 0.8275
+   },
+   {
+    "language": "no",
+    "cells": 12,
+    "pearson": 0.612,
+    "pearson_normalized": 0.6993
+   },
+   {
+    "language": "pt",
+    "cells": 12,
+    "pearson": 0.7425,
+    "pearson_normalized": 0.8376
+   },
+   {
+    "language": "ru",
+    "cells": 17,
+    "pearson": 0.7123,
+    "pearson_normalized": 0.7947
+   },
+   {
+    "language": "sr",
+    "cells": 6,
+    "pearson": 0.5977,
+    "pearson_normalized": 0.6875
+   },
+   {
+    "language": "tr",
+    "cells": 24,
+    "pearson": 0.7004,
+    "pearson_normalized": 0.7486
+   },
+   {
+    "language": "zh",
+    "cells": 34,
+    "pearson": 0.6588,
+    "pearson_normalized": 0.7928
+   }
+  ],
+  "benchmark": [
+   {
+    "system": "reactor (released)",
+    "cells": 239,
+    "cell_macro": 0.6131,
+    "dataset_macro": 0.6262,
+    "pearson_normalized": 0.7405,
+    "trt_mae_ms": 49.0788,
+    "pearson_ffd": 0.385,
+    "pearson_gd": 0.6738,
+    "pearson_gpt": 0.6354,
+    "pearson_trt": 0.7592,
+    "pearson_fix_prob": 0.7941,
+    "pearson_reg_prob": 0.4192,
+    "pearson_rt": 0.5
+   },
+   {
+    "system": "Fine-tuned XLM-RoBERTa-large regressor",
+    "cells": 239,
+    "cell_macro": 0.5624,
+    "dataset_macro": 0.5391,
+    "pearson_normalized": 0.6709,
+    "trt_mae_ms": 53.5035,
+    "pearson_ffd": 0.3201,
+    "pearson_gd": 0.6246,
+    "pearson_gpt": 0.5943,
+    "pearson_trt": 0.7266,
+    "pearson_fix_prob": 0.7696,
+    "pearson_reg_prob": 0.3276,
+    "pearson_rt": 0.3564
+   },
+   {
+    "system": "CMCL 2022 winner, reimplemented (HkAmsters)",
+    "cells": 239,
+    "cell_macro": 0.5119,
+    "dataset_macro": 0.4974,
+    "pearson_normalized": 0.6038,
+    "trt_mae_ms": 55.3949,
+    "pearson_ffd": 0.2685,
+    "pearson_gd": 0.6088,
+    "pearson_gpt": 0.5244,
+    "pearson_trt": 0.7133,
+    "pearson_fix_prob": 0.7607,
+    "pearson_reg_prob": 0.1774,
+    "pearson_rt": 0.4224
+   },
+   {
+    "system": "Frozen-layer probe + surprisal (Tsipidi et al. 2026)",
+    "cells": 239,
+    "cell_macro": 0.4907,
+    "dataset_macro": 0.4851,
+    "pearson_normalized": 0.581,
+    "trt_mae_ms": 55.9266,
+    "pearson_ffd": 0.2414,
+    "pearson_gd": 0.553,
+    "pearson_gpt": 0.5092,
+    "pearson_trt": 0.6765,
+    "pearson_fix_prob": 0.7559,
+    "pearson_reg_prob": 0.1907,
+    "pearson_rt": 0.4219
+   },
+   {
+    "system": "Lexical predictors + surprisal (ridge)",
+    "cells": 239,
+    "cell_macro": 0.4764,
+    "dataset_macro": 0.4673,
+    "pearson_normalized": 0.5583,
+    "trt_mae_ms": 51.8868,
+    "pearson_ffd": 0.192,
+    "pearson_gd": 0.5936,
+    "pearson_gpt": 0.5143,
+    "pearson_trt": 0.6975,
+    "pearson_fix_prob": 0.714,
+    "pearson_reg_prob": 0.1269,
+    "pearson_rt": 0.3704
+   },
+   {
+    "system": "Gradient boosting on word features (tier 1)",
+    "cells": 239,
+    "cell_macro": 0.5897,
+    "dataset_macro": 0.5962,
+    "pearson_normalized": 0.7112,
+    "trt_mae_ms": 59.9154,
+    "pearson_ffd": 0.3666,
+    "pearson_gd": 0.6414,
+    "pearson_gpt": 0.5915,
+    "pearson_trt": 0.7288,
+    "pearson_fix_prob": 0.7942,
+    "pearson_reg_prob": 0.4041,
+    "pearson_rt": 0.4875
+   },
+   {
+    "system": "Gradient boosting on word features + corpus (tier 2)",
+    "cells": 239,
+    "cell_macro": 0.6056,
+    "dataset_macro": 0.6435,
+    "pearson_normalized": 0.7306,
+    "trt_mae_ms": 52.6829,
+    "pearson_ffd": 0.3814,
+    "pearson_gd": 0.6627,
+    "pearson_gpt": 0.6114,
+    "pearson_trt": 0.7462,
+    "pearson_fix_prob": 0.8061,
+    "pearson_reg_prob": 0.407,
+    "pearson_rt": 0.7773
+   },
+   {
+    "system": "Per-corpus blend of reactor and gradient boosting (not released)",
+    "cells": 239,
+    "cell_macro": 0.6272,
+    "dataset_macro": 0.6621,
+    "pearson_normalized": 0.7579,
+    "trt_mae_ms": 48.1391,
+    "pearson_ffd": 0.4062,
+    "pearson_gd": 0.6833,
+    "pearson_gpt": 0.6431,
+    "pearson_trt": 0.7669,
+    "pearson_fix_prob": 0.8094,
+    "pearson_reg_prob": 0.4361,
+    "pearson_rt": 0.7801
+   }
+  ],
+  "comparisons": [
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "macro",
+    "cells": 239,
+    "pearson_run": 0.6131,
+    "pearson_other": 0.5624,
+    "difference": 0.0507,
+    "ci_low": 0.0488,
+    "ci_high": 0.0529
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "dataset_macro",
+    "cells": 239,
+    "pearson_run": 0.6262,
+    "pearson_other": 0.5391,
+    "difference": 0.0871,
+    "ci_low": 0.0753,
+    "ci_high": 0.0982
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "ffd",
+    "cells": 39,
+    "pearson_run": 0.385,
+    "pearson_other": 0.3201,
+    "difference": 0.0649,
+    "ci_low": 0.0608,
+    "ci_high": 0.0692
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "fix_prob",
+    "cells": 39,
+    "pearson_run": 0.7941,
+    "pearson_other": 0.7696,
+    "difference": 0.0245,
+    "ci_low": 0.0232,
+    "ci_high": 0.0266
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "gd",
+    "cells": 39,
+    "pearson_run": 0.6738,
+    "pearson_other": 0.6246,
+    "difference": 0.0492,
+    "ci_low": 0.0459,
+    "ci_high": 0.0529
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "gpt",
+    "cells": 39,
+    "pearson_run": 0.6354,
+    "pearson_other": 0.5943,
+    "difference": 0.0411,
+    "ci_low": 0.0383,
+    "ci_high": 0.0443
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "reg_prob",
+    "cells": 39,
+    "pearson_run": 0.4192,
+    "pearson_other": 0.3276,
+    "difference": 0.0916,
+    "ci_low": 0.0866,
+    "ci_high": 0.0967
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "rt",
+    "cells": 1,
+    "pearson_run": 0.5,
+    "pearson_other": 0.3564,
+    "difference": 0.1436,
+    "ci_low": -0.003,
+    "ci_high": 0.25
+   },
+   {
+    "comparison": "reactor vs XLM-R-large, tier-1 test cells",
+    "scope": "trt",
+    "cells": 43,
+    "pearson_run": 0.7592,
+    "pearson_other": 0.7266,
+    "difference": 0.0326,
+    "ci_low": 0.0309,
+    "ci_high": 0.0362
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "macro",
+    "cells": 342,
+    "pearson_run": 0.6518,
+    "pearson_other": 0.6439,
+    "difference": 0.0079,
+    "ci_low": 0.0055,
+    "ci_high": 0.0109
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "dataset_macro",
+    "cells": 342,
+    "pearson_run": 0.6901,
+    "pearson_other": 0.6839,
+    "difference": 0.0061,
+    "ci_low": -0.0031,
+    "ci_high": 0.0175
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "ffd",
+    "cells": 56,
+    "pearson_run": 0.4532,
+    "pearson_other": 0.4482,
+    "difference": 0.005,
+    "ci_low": 0.0008,
+    "ci_high": 0.0096
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "fix_prob",
+    "cells": 56,
+    "pearson_run": 0.8215,
+    "pearson_other": 0.8333,
+    "difference": -0.0118,
+    "ci_low": -0.0135,
+    "ci_high": -0.0087
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "gd",
+    "cells": 56,
+    "pearson_run": 0.6927,
+    "pearson_other": 0.6819,
+    "difference": 0.0107,
+    "ci_low": 0.0076,
+    "ci_high": 0.0147
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "gpt",
+    "cells": 54,
+    "pearson_run": 0.6741,
+    "pearson_other": 0.6536,
+    "difference": 0.0205,
+    "ci_low": 0.017,
+    "ci_high": 0.0244
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "reg_prob",
+    "cells": 54,
+    "pearson_run": 0.4955,
+    "pearson_other": 0.4866,
+    "difference": 0.0089,
+    "ci_low": 0.0046,
+    "ci_high": 0.0131
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "rt",
+    "cells": 6,
+    "pearson_run": 0.6415,
+    "pearson_other": 0.6215,
+    "difference": 0.02,
+    "ci_low": -0.027,
+    "ci_high": 0.0714
+   },
+   {
+    "comparison": "reactor vs gradient boosting + corpus, tier-2 test",
+    "scope": "trt",
+    "cells": 60,
+    "pearson_run": 0.762,
+    "pearson_other": 0.7492,
+    "difference": 0.0128,
+    "ci_low": 0.0086,
+    "ci_high": 0.0188
+   }
+  ],
+  "heldout": [
+   {
+    "system": "Gradient boosting on word features",
+    "dataset": "copco",
+    "cells": 2,
+    "cell_macro": 0.5203,
+    "dataset_macro": 0.5203
+   },
+   {
+    "system": "Gradient boosting on word features",
+    "dataset": "potec",
+    "cells": 6,
+    "cell_macro": 0.7492,
+    "dataset_macro": 0.7492
+   },
+   {
+    "system": "Gradient boosting on word features",
+    "dataset": "provo",
+    "cells": 6,
+    "cell_macro": 0.792,
+    "dataset_macro": 0.792
+   },
+   {
+    "system": "Gradient boosting on word features",
+    "dataset": "all",
+    "cells": 14,
+    "cell_macro": 0.7349,
+    "dataset_macro": 0.6872
+   },
+   {
+    "system": "reactor architecture (one-mixer head, tier-1 data)",
+    "dataset": "copco",
+    "cells": 2,
+    "cell_macro": 0.5422,
+    "dataset_macro": 0.5422
+   },
+   {
+    "system": "reactor architecture (one-mixer head, tier-1 data)",
+    "dataset": "potec",
+    "cells": 6,
+    "cell_macro": 0.7803,
+    "dataset_macro": 0.7803
+   },
+   {
+    "system": "reactor architecture (one-mixer head, tier-1 data)",
+    "dataset": "provo",
+    "cells": 6,
+    "cell_macro": 0.7865,
+    "dataset_macro": 0.7865
+   },
+   {
+    "system": "reactor architecture (one-mixer head, tier-1 data)",
+    "dataset": "all",
+    "cells": 14,
+    "cell_macro": 0.749,
+    "dataset_macro": 0.703
+   }
+  ]
+ }
+}

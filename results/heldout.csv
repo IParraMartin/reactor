@@ -1,0 +1,9 @@
+system,dataset,cells,cell_macro,dataset_macro
+Gradient boosting on word features,copco,2,0.5203239735460279,0.5203239735460279
+Gradient boosting on word features,potec,6,0.7491757170689728,0.7491757170689728
+Gradient boosting on word features,provo,6,0.7920375728169297,0.7920375728169297
+Gradient boosting on word features,all,14,0.7348519776005337,0.6871790878106435
+"reactor architecture (one-mixer head, tier-1 data)",copco,2,0.5422362103791354,0.5422362103791354
+"reactor architecture (one-mixer head, tier-1 data)",potec,6,0.7803129579057059,0.7803129579057059
+"reactor architecture (one-mixer head, tier-1 data)",provo,6,0.7865177803138508,0.7865177803138508
+"reactor architecture (one-mixer head, tier-1 data)",all,14,0.7489612035768294,0.703022316199564

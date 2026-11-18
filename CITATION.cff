@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use reactor, please cite it as below, together with the reading corpora it was trained on (docs/datasets.md)."
+title: "reactor: human reading times for any text"
+type: software
+authors:
+  - alias: IParraMartin
+version: 0.1.0
+date-released: 2026-11-17
+license: MIT
+repository-code: "https://github.com/IParraMartin/reactor"
+url: "https://huggingface.co/IParraMartin/reactor-qwen3.5-4b"
+keywords:
+  - reading times
+  - eye tracking
+  - self-paced reading
+  - psycholinguistics
+  - language models
